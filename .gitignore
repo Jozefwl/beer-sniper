@@ -1,3 +1,7 @@
 __pycache__
 venv
 .venv
+.idea
+DS_STORE
+__MACOSX
+.DS_STORE
