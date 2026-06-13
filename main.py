@@ -366,23 +366,13 @@ def play_level(screen):
         vx = dir_x * TARGET_SPEED
         vy = dir_y * TARGET_SPEED
 
-        if dir_x > 0:
-            x = -box_size
-        elif dir_x < 0:
-            x = WIDTH
-        else:
-            x = random.randint(0, WIDTH - box_size)
-
-        if dir_y > 0:
-            y = -box_size
-        elif dir_y < 0:
-            y = HEIGHT
-        else:
-            y = random.randint(0, HEIGHT - box_size)
+        # Spawn na nahodnej pozicii na obrazovke (terce ostavaju a odrazaju sa).
+        x = random.randint(0, WIDTH - box_size)
+        y = random.randint(0, HEIGHT - box_size)
 
         rect = pygame.Rect(x, y, box_size, box_size)
         img = random.choice(target_imgs) if target_imgs else None
-        boxes.append((rect, img, vx, vy))
+        boxes.append([rect, img, vx, vy])
 
     spawn_box()
 
@@ -464,12 +454,37 @@ def play_level(screen):
             spawn_box()
             last_spawn = now
 
+        # Odraz tercov medzi sebou: vymen rychlosti ak sa k sebe priblizuju.
+        for i in range(len(boxes)):
+            for j in range(i + 1, len(boxes)):
+                bi = boxes[i]
+                bj = boxes[j]
+                if bi[0].colliderect(bj[0]):
+                    rel_px = bi[0].centerx - bj[0].centerx
+                    rel_py = bi[0].centery - bj[0].centery
+                    rel_vx = bi[2] - bj[2]
+                    rel_vy = bi[3] - bj[3]
+                    if rel_px * rel_vx + rel_py * rel_vy < 0:
+                        bi[2], bi[3], bj[2], bj[3] = bj[2], bj[3], bi[2], bi[3]
+
         for box in boxes[:]:
             rect, img, vx, vy = box
             rect.x += vx
             rect.y += vy
-            if rect.right < 0 or rect.left > WIDTH or rect.bottom < 0 or rect.top > HEIGHT:
-                boxes.remove(box)
+
+            # Odraz od stien okna.
+            if rect.left < 0:
+                rect.left = 0
+                box[2] = -box[2]
+            elif rect.right > WIDTH:
+                rect.right = WIDTH
+                box[2] = -box[2]
+            if rect.top < 0:
+                rect.top = 0
+                box[3] = -box[3]
+            elif rect.bottom > HEIGHT:
+                rect.bottom = HEIGHT
+                box[3] = -box[3]
 
         for explosion in explosions[:]:
             explosion.update()
