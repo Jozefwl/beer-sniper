@@ -1,6 +1,8 @@
 import pygame
 import pygame.freetype
 import random
+import os
+import sys
 from enum import Enum
 from pygame.sprite import Sprite
 from pygame.sprite import RenderUpdates
@@ -60,10 +62,48 @@ def create_surface_with_text(text, font_size, text_rgb, bg_rgb, font_name="Impac
     surface, _ = font.render(text=text, fgcolor=text_rgb, bgcolor=bg_rgb)
     return surface.convert_alpha()
 
+
+def resource_path(relative_path):
+    """Vrati absolutnu cestu k suboru pre local run aj PyInstaller bundle."""
+    candidates = []
+
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidates.append(os.path.join(meipass, relative_path))
+
+    if getattr(sys, "frozen", False):
+        exe_dir = os.path.dirname(sys.executable)
+        candidates.extend(
+            [
+                os.path.join(exe_dir, relative_path),
+                os.path.join(exe_dir, "..", "Resources", relative_path),   # macOS .app bundle
+                os.path.join(exe_dir, "..", "..", "..", "main", relative_path),  # sibling onedir build
+            ]
+        )
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates.extend(
+        [
+            os.path.join(script_dir, relative_path),
+            os.path.join(os.getcwd(), relative_path),
+        ]
+    )
+
+    for candidate in candidates:
+        normalized = os.path.normpath(candidate)
+        if os.path.exists(normalized):
+            return normalized
+
+    # fallback na najlepsi odhad pre chybovu hlasku pygame
+    if candidates:
+        return os.path.normpath(candidates[0])
+    return os.path.normpath(os.path.join(script_dir, relative_path))
+
+
 def load_cartridge_image(path):
     """ Nacita obrazok naboja raz a zmensi ho. Vrati None ak chyba. """
     try:
-        img = pygame.image.load(path).convert_alpha()
+        img = pygame.image.load(resource_path(path)).convert_alpha()
         return pygame.transform.scale(img, (CARTRIDGE_WIDTH, CARTRIDGE_HEIGHT))
     except (FileNotFoundError, pygame.error):
         print(path + " chyba / nespravna cesta k suboru")
@@ -102,13 +142,10 @@ def load_explosion_frames(path):
         https://stackoverflow.com/questions/10560446/how-do-you-select-a-sprite-image-from-a-sprite-sheet-in-python
     """
     try:
-        sheet = pygame.image.load(path).convert_alpha()
-        print(sheet)
+        sheet = pygame.image.load(resource_path(path)).convert_alpha()
     except (FileNotFoundError, pygame.error):
         print("explosion.png chyba / nespravna cesta k suboru")
-        return
-
-    sheet = pygame.image.load(path).convert_alpha()
+        return []
     frames = []
     for row in range(EXPLOSION_ROWS):
         for col in range(EXPLOSION_COLS):
@@ -257,7 +294,7 @@ def title_screen(screen):
 
     instructions_font = pygame.font.SysFont("Arial", 20)
     instructions_text = instructions_font.render(
-        "Spicka hlavne = cursor, R = nabit zasobnik, ESC = menu.", True, WHITE
+        "Mier a klikaj na plechovky, R = nabit zasobnik, ESC = menu.", True, WHITE
     )
     instructions_rect = instructions_text.get_rect(center=(WIDTH / 2, HEIGHT * 1 / 4 + 60))
 
@@ -350,7 +387,7 @@ def play_level(screen):
     target_imgs = []
     for path in TARGET_PATHS:
         try:
-            img = pygame.image.load(path).convert_alpha()
+            img = pygame.image.load(resource_path(path)).convert_alpha()
             target_imgs.append(pygame.transform.scale(img, (box_size, box_size)))
         except (FileNotFoundError, pygame.error):
             print(path + " chyba / nespravna cesta k suboru")
@@ -377,14 +414,14 @@ def play_level(screen):
     spawn_box()
 
     try:
-        crosshair_img = pygame.image.load("sniper.png").convert_alpha()
+        crosshair_img = pygame.image.load(resource_path("sniper.png")).convert_alpha()
         crosshair_img = pygame.transform.scale(crosshair_img, (CROSSHAIR_WIDTH, CROSSHAIR_HEIGHT))
     except (FileNotFoundError, pygame.error):
         print("sniper.png chyba / nespravna cesta k suboru")
         crosshair_img = None
 
     try:
-        firstperson_img = pygame.image.load("firstperson.png").convert_alpha()
+        firstperson_img = pygame.image.load(resource_path("firstperson.png")).convert_alpha()
     except (FileNotFoundError, pygame.error):
         print("firstperson.png chyba / nespravna cesta k suboru")
         firstperson_img = None
@@ -396,7 +433,7 @@ def play_level(screen):
     cartridges = []
 
     try:
-        reward_img = pygame.image.load("reward.png").convert_alpha()
+        reward_img = pygame.image.load(resource_path("reward.png")).convert_alpha()
         reward_img = pygame.transform.scale(reward_img, (130, 90))
     except (FileNotFoundError, pygame.error):
         print("reward.png chyba / nespravna cesta k suboru")
@@ -425,7 +462,8 @@ def play_level(screen):
                     for box in boxes[:]:
                         rect, img, vx, vy = box
                         if rect.collidepoint(mouse_x, mouse_y):
-                            explosions.append(Explosion(explosion_frames, rect.center))
+                            if explosion_frames:
+                                explosions.append(Explosion(explosion_frames, rect.center))
                             boxes.remove(box)
                             hit = True
                             break

@@ -5,3 +5,5 @@ venv
 DS_STORE
 __MACOSX
 .DS_STORE
+build
+dist
